@@ -1,3 +1,7 @@
+tasks:
+  - init: cd srcs/00_rustlings
+  - command: cd /workspace/rust-book
+
 vscode:
   extensions:
     - aliariff.auto-add-brackets
