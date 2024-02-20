@@ -1,9 +1,3 @@
-image:
-    file: .gitpod.Dockerfile
-
-tasks:
-  - command: curl -L https://raw.githubusercontent.com/rust-lang/rustlings/main/install.sh | bash
-
 vscode:
   extensions:
     - aliariff.auto-add-brackets
