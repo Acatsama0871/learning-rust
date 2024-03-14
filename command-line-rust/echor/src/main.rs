@@ -1,4 +1,4 @@
-use clap::{Command, Arg, ArgAction};
+use clap::{Arg, ArgAction, Command};
 
 fn main() {
     let matches = Command::new("echor")
@@ -12,12 +12,23 @@ fn main() {
         .action(ArgAction::SetTrue)
     )
     .arg(
-        Arg::new("config")
+        Arg::new("text")
         .value_name("TEXT")
         .help("Text input")
         .required(true)
         .num_args(1..)
     ).get_matches();
 
-    println!("{:#?}", matches);
+    
+    // get matched values
+    let text_values = matches
+        .get_many::<String>("text")
+        .unwrap()
+        .map(|s| s.as_str())
+        .collect::<Vec<_>>();
+    
+    let omit_newline = matches.get_flag("omit_newline");
+    
+    println!("{:?}", text_values);
+    println!("{:?}", omit_newline);
 }
