@@ -1,6 +1,6 @@
-use std::fs::File;
-use std::error::Error;
 use clap::{Arg, ArgAction, Command};
+use std::error::Error;
+use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 
 type MyResult<T> = Result<T, Box<dyn Error>>;
@@ -16,10 +16,24 @@ pub fn run(config: Config) -> MyResult<()> {
     for file_name in config.files {
         match open(&file_name) {
             Err(err) => eprint!("Failed to open {}: {}", file_name, err),
-            Ok(mut reader) => {
+            Ok(reader) => {
+                let mut counter = 0;
                 for line in reader.lines() {
-                    let line = line?;
-                    println!("{}", line);
+                    if config.number_lines {
+                        counter += 1;
+                        println!("{:>6}\t{}", counter, line?);
+                    } else if config.number_nonblank_lines {
+                        let line = line?;
+                        if !line.is_empty() {
+                            counter += 1;
+                            println!("{:>6}\t{}", counter, line);
+                        } else {
+                            println!();
+                        }
+                    } else {
+                        let line = line?;
+                        println!("{}", line);
+                    }
                 }
             }
         }
@@ -44,7 +58,7 @@ pub fn get_args() -> MyResult<Config> {
                 .short('n')
                 .long("number")
                 .help("number lines")
-                .action(ArgAction::SetFalse)
+                .action(ArgAction::SetTrue)
                 .conflicts_with("number_nonblank"),
         )
         .arg(
@@ -52,7 +66,7 @@ pub fn get_args() -> MyResult<Config> {
                 .short('b')
                 .long("number-nonblank")
                 .help("number non-blank lines")
-                .action(ArgAction::SetFalse),
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("files")
