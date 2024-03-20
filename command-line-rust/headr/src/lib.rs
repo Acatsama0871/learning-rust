@@ -1,5 +1,7 @@
 use clap::{Arg, ArgAction, Command};
-use std::error::Error;
+use std::fs::File;
+use std::io::{self, BufRead, BufReader};
+use std::{error::Error, usize};
 
 type MyResult<T> = Result<T, Box<dyn Error>>;
 
@@ -11,59 +13,91 @@ pub struct Config {
 }
 
 pub fn run(config: Config) -> MyResult<()> {
+    for filename in config.files {
+        match open(&filename) {
+            Err(err) => eprint!("{} : {}", filename, err),
+            Ok(_) => println!("Opened {}", filename),
+        }
+    }
+
     Ok(())
+}
+
+fn open(file_name: &str) -> MyResult<Box<dyn BufRead>> {
+    match file_name {
+        "-" => Ok(Box::new(BufReader::new(io::stdin()))),
+        _ => Ok(Box::new(BufReader::new(File::open(file_name)?))),
+    }
 }
 
 pub fn get_args() -> MyResult<Config> {
     let matches = Command::new("headr")
-    .version("0.0.0")
-    .author("Haohang Li <hli113@stevens.edu>")
-    .about("rust head")
-    .arg(
-        Arg::new("num_lines")
-        .short('n')
-        .long("num-lines")
-        .help("num of lines")
-        .conflicts_with("num-bytes")
-        .default_value("10")
-        .num_args(1)
-    )
-    .arg (
-        Arg::new("num-bytes")
-        .short('b')
-        .long("num-bytes")
-        .help("num-bytes")
-        .num_args(1)
-    )
-    .arg(
-        Arg::new("files")
-        .value_name("FILE")
-        .help("input files")
-        .default_value("-")
-        .num_args(2..)
-    ).get_matches();
-    
+        .version("0.0.0")
+        .author("Haohang Li <hli113@stevens.edu>")
+        .about("rust head")
+        .arg(
+            Arg::new("LINES")
+                .short('n')
+                .long("lines")
+                .help("num of lines")
+                .conflicts_with("BYTES")
+                .default_value("10")
+                .num_args(1),
+        )
+        .arg(
+            Arg::new("BYTES")
+                .short('c')
+                .long("bytes")
+                .help("num-bytes")
+                .num_args(1),
+        )
+        .arg(
+            Arg::new("files")
+                .value_name("FILE")
+                .help("input files")
+                .default_value("-")
+                .num_args(1..),
+        )
+        .get_matches();
+
     // match arguments
-    let file_arguments = matches.get_many::<String>("files").unwrap().map(|s| s.clone()).collect::<Vec<_>>();
-    let lines = parse_positive_args(matches.get_one::<String>("num_lines"))?;
-    
-    println!("{}", lines);
-    
+    let file_arguments = matches
+        .get_many::<String>("files")
+        .unwrap()
+        .map(|s| s.clone())
+        .collect::<Vec<_>>();
+    let lines = parse_positive_args(matches.get_one::<String>("LINES").unwrap().as_str())
+        .map_err(|e| format!("illegal line count -- {}", e))?;
+    let bytes = match matches.get_one::<String>("BYTES") {
+        Some(a) => {
+            Some(parse_positive_args(a).map_err(|e| format!("illegal byte count -- {}", e))?)
+        }
+        None => None,
+    };
+
     Ok(Config {
         files: file_arguments,
         lines: lines,
-        bytes: Some(13),
+        bytes: bytes,
     })
 }
 
-
-fn parse_positive_args(val: Option<&String>) -> MyResult<usize> {
-    match val {
-        Some(a) => match a.parse() {
-            Ok(n) if n > 0 => Ok(n),
-            _ => Err(format!("Invalid value '{}' for 'num_lines'", a).into()),
-        }
-        None => Ok(10)
+fn parse_positive_args(val: &str) -> MyResult<usize> {
+    match val.parse() {
+        Ok(n) if n > 0 => Ok(n),
+        _ => Err(val.into()),
     }
 }
 
+#[test]
+fn test_parse_positive_int() {
+    let res = parse_positive_args("3");
+    assert!(res.is_ok());
+    assert_eq!(res.unwrap(), 3);
+
+    let res = parse_positive_args("foo");
+    assert!(res.is_err());
+
+    let res = parse_positive_args("0");
+    assert!(res.is_err());
+}
