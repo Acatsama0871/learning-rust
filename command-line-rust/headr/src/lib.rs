@@ -1,4 +1,4 @@
-use clap::{Arg, ArgAction, Command};
+use clap::{Arg, Command};
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::{error::Error, usize};
@@ -15,8 +15,18 @@ pub struct Config {
 pub fn run(config: Config) -> MyResult<()> {
     for filename in config.files {
         match open(&filename) {
-            Err(err) => eprint!("{} : {}", filename, err),
-            Ok(_) => println!("Opened {}", filename),
+            Err(err) => eprintln!("{}: {}", filename, err),
+            Ok(reader) => match config.bytes {
+                Some(byte_limit) => {
+                    eprint!("Not implemented!")
+                }
+                None => for line in reader.lines().take(config.lines) {
+                    match line {
+                        Ok(content) => println!("{}", content),
+                        Err(_) => break
+                    }
+                },
+            },
         }
     }
 
