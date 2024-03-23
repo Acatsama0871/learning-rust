@@ -8,9 +8,9 @@ Two lines.
 Four words.
 
 ==> ./tests/inputs/three.txt <==
-Three
-lines,
-four words.
+Three\r
+lines,\r
+four words.\r
 
 ==> ./tests/inputs/ten.txt <==
 one

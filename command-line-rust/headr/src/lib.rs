@@ -1,6 +1,6 @@
 use clap::{Arg, Command};
 use std::fs::File;
-use std::io::{self, BufRead, BufReader};
+use std::io::{self, BufRead, BufReader, Write};
 use std::{error::Error, usize};
 
 type MyResult<T> = Result<T, Box<dyn Error>>;
@@ -13,20 +13,37 @@ pub struct Config {
 }
 
 pub fn run(config: Config) -> MyResult<()> {
-    for filename in config.files {
+    let num_files = config.files.len();
+
+    for (file_num, filename) in config.files.iter().enumerate() {
         match open(&filename) {
             Err(err) => eprintln!("{}: {}", filename, err),
-            Ok(reader) => match config.bytes {
-                Some(byte_limit) => {
-                    eprint!("Not implemented!")
+            Ok(mut reader) => {
+                if num_files > 1 {
+                    println!(
+                        "{}==> {} <==",
+                        if file_num > 0 { "\n" } else { "" },
+                        filename
+                    );
                 }
-                None => for line in reader.lines().take(config.lines) {
-                    match line {
-                        Ok(content) => println!("{}", content),
-                        Err(_) => break
+
+                match config.bytes {
+                    Some(byte_limit) => {
+                        eprint!("Not implemented!")
                     }
-                },
-            },
+                    None => {
+                        let mut line = String::new();
+                        for _ in 0..config.lines {
+                            let bytes = reader.read_line(&mut line)?;
+                            if bytes == 0 {
+                                break;
+                            }
+                            print!("{}", line.trim_end_matches('\r'));
+                            line.clear();
+                        }
+                    }
+                }
+            }
         }
     }
 
