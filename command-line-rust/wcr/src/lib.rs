@@ -13,9 +13,79 @@ pub struct Config {
     chars: bool,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct FileInfo {
+    num_lines: usize,
+    num_words: usize,
+    num_bytes: usize,
+    num_chars: usize,
+}
+
+fn format_field(value: usize, show: bool) -> String {
+    if show {
+        format!("{:>8}", value)
+    } else {
+        "".to_string()
+    }
+}
+
+pub fn count(mut file: impl BufRead) -> Result<FileInfo> {
+    let mut num_lines = 0;
+    let mut num_words = 0;
+    let mut num_bytes = 0;
+    let mut num_chars = 0;
+    let mut line = String::new();
+
+    loop {
+        let line_bytes = file.read_line(&mut line)?;
+        if line_bytes == 0 {
+            break;
+        }
+        num_bytes += line_bytes;
+        num_lines += 1;
+        num_words += line.split_whitespace().count();
+        num_chars += line.chars().count();
+        line.clear();
+    }
+
+    Ok(FileInfo {
+        num_lines,
+        num_words,
+        num_bytes,
+        num_chars,
+    })
+}
+
 pub fn run(config: Config) -> Result<()> {
-    println!("{:#?}", config);
+    for filename in &config.files {
+        match open(filename) {
+            Err(err) => eprintln!("{}: {}", filename, err),
+            Ok(reader) => {
+                if let Ok(result) = count(reader) {
+                    println!(
+                        "{}{}{}{}{}",
+                        format_field(result.num_lines, config.lines),
+                        format_field(result.num_words, config.words),
+                        format_field(result.num_bytes, config.bytes),
+                        format_field(result.num_chars, config.chars),
+                        if filename == "-" {
+                            "".to_string()
+                        } else {
+                            format!(" {}", filename)
+                        }
+                    );
+                }
+            }
+        }
+    }
     Ok(())
+}
+
+fn open(filename: &str) -> Result<Box<dyn BufRead>> {
+    match filename {
+        "-" => Ok(Box::new(BufReader::new(io::stdin()))),
+        _ => Ok(Box::new(BufReader::new(File::open(filename)?))),
+    }
 }
 
 pub fn get_args() -> Result<Config> {
@@ -33,6 +103,7 @@ pub fn get_args() -> Result<Config> {
         .arg(
             Arg::new("lines")
                 .short('l')
+                .long("lines")
                 .value_name("LINES")
                 .help("num of lines to output")
                 .action(ArgAction::SetTrue),
@@ -40,6 +111,7 @@ pub fn get_args() -> Result<Config> {
         .arg(
             Arg::new("words")
                 .short('w')
+                .long("words")
                 .value_name("WORDS")
                 .help("num of words to output")
                 .action(ArgAction::SetTrue),
@@ -47,6 +119,7 @@ pub fn get_args() -> Result<Config> {
         .arg(
             Arg::new("bytes")
                 .short('c')
+                .long("bytes")
                 .value_name("BYTES")
                 .help("num of bytes to output")
                 .action(ArgAction::SetTrue),
@@ -54,6 +127,7 @@ pub fn get_args() -> Result<Config> {
         .arg(
             Arg::new("chars")
                 .short('m')
+                .long("chars")
                 .value_name("CHARS")
                 .help("num of characters to output")
                 .action(ArgAction::SetTrue),
@@ -84,7 +158,7 @@ pub fn get_args() -> Result<Config> {
         line_indicator = true;
         word_indicator = true;
         byte_indicator = true;
-        char_indicator = true;
+        char_indicator = false;
     }
 
     Ok(Config {
