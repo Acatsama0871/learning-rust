@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::{Arg, ArgAction, Command};
-use std::error::Error;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 
@@ -57,6 +56,11 @@ pub fn count(mut file: impl BufRead) -> Result<FileInfo> {
 }
 
 pub fn run(config: Config) -> Result<()> {
+    let mut total_lines = 0;
+    let mut total_words = 0;
+    let mut total_bytes = 0;
+    let mut total_chars = 0;
+
     for filename in &config.files {
         match open(filename) {
             Err(err) => eprintln!("{}: {}", filename, err),
@@ -74,10 +78,26 @@ pub fn run(config: Config) -> Result<()> {
                             format!(" {}", filename)
                         }
                     );
+
+                    total_lines += result.num_lines;
+                    total_words += result.num_words;
+                    total_chars += result.num_chars;
+                    total_bytes += result.num_bytes;
                 }
             }
         }
     }
+
+    if config.files.len() > 1 {
+        println!(
+            "{}{}{}{} total",
+            format_field(total_lines, config.lines),
+            format_field(total_words, config.words),
+            format_field(total_bytes, config.bytes),
+            format_field(total_chars, config.chars),
+        )
+    }
+
     Ok(())
 }
 
@@ -122,6 +142,7 @@ pub fn get_args() -> Result<Config> {
                 .long("bytes")
                 .value_name("BYTES")
                 .help("num of bytes to output")
+                .conflicts_with("chars")
                 .action(ArgAction::SetTrue),
         )
         .arg(
@@ -130,6 +151,7 @@ pub fn get_args() -> Result<Config> {
                 .long("chars")
                 .value_name("CHARS")
                 .help("num of characters to output")
+                .conflicts_with("bytes")
                 .action(ArgAction::SetTrue),
         )
         .get_matches();
