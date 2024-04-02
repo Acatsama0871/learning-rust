@@ -1,5 +1,7 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::{Arg, ArgAction, Command};
+use std::fs::File;
+use std::io::{self, BufRead, BufReader};
 
 #[derive(Debug)]
 pub struct Config {
@@ -45,8 +47,37 @@ pub fn get_args() -> Result<Config> {
     })
 }
 
-pub fn run(config: Config) -> Result<()> {
-    dbg!(&config);
+fn open(filename: &str) -> Result<Box<dyn BufRead>> {
+    match filename {
+        "-" => Ok(Box::new(BufReader::new(io::stdin()))),
+        _ => Ok(Box::new(BufReader::new(File::open(filename)?))),
+    }
+}
 
+pub fn run(config: Config) -> Result<()> {
+    let mut file = open(&config.in_file).map_err(|e| anyhow!("{}: {e}", config.in_file))?;
+    let mut line = String::new();
+    let mut previous = String::new();
+    let mut count:u32 = 0;
+    
+    loop {
+        let bytes = file.read_line(&mut line)?;
+        if bytes == 0 {
+            break;
+        }
+        if line.trim_end() != previous.trim_end() {
+            if count > 0 {
+                print!("{:>4} {}", count, previous);
+            }
+            previous = line.clone();
+            count = 0;
+        }
+        count += 1;
+        line.clear();
+    }
+    
+    if count > 0 {
+        print!{"{:>4} {}", count, previous};
+    }
     Ok(())
 }
