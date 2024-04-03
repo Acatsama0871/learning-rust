@@ -1,7 +1,8 @@
 use crate::EntryType::*;
 use anyhow::{anyhow, Result};
-use clap::{Arg, ArgAction, Command};
+use clap::{Arg, Command};
 use regex::Regex;
+use walkdir::WalkDir;
 // use std::fs::File;
 // use std::io::{self, BufRead, BufReader};
 
@@ -28,7 +29,6 @@ pub fn get_args() -> Result<Config> {
             Arg::new("paths")
                 .value_name("PATH")
                 .help("Search paths")
-                .default_value(".")
                 .num_args(1..)
                 .required(true),
         )
@@ -65,10 +65,10 @@ pub fn get_args() -> Result<Config> {
         .map(|s| Regex::new(s).map_err(|_| anyhow!(format!("Invalid --name \"{}\"", s))))
         .collect::<Result<Vec<_>, _>>()?;
     let types = matches
-    .get_many::<String>("types")
-    .unwrap_or_default()
-    .map(|s| type_value_parser(s))
-    .collect::<Vec<_>>();
+        .get_many::<String>("types")
+        .unwrap_or_default()
+        .map(|s| type_value_parser(s))
+        .collect::<Vec<_>>();
 
     Ok(Config {
         paths: paths,
@@ -78,7 +78,21 @@ pub fn get_args() -> Result<Config> {
 }
 
 pub fn run(config: Config) -> Result<()> {
-    dbg!(&config);
+    for cur_path in config.paths {
+        for entry in WalkDir::new(cur_path) {
+            match entry {
+                Err(e) => Err(anyhow!(e))?,
+                Ok(entry) => {
+                    for cur_reg in &config.names {
+                        if cur_reg.is_match(entry.path().to_str().unwrap()) {
+                            println!("{}", entry.path().display());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -87,6 +101,6 @@ fn type_value_parser(s: &str) -> EntryType {
         "d" => Dir,
         "f" => File,
         "l" => Link,
-        _ => unreachable!("You should never be here")
+        _ => unreachable!("You should never be here"),
     }
 }
